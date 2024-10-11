@@ -8,14 +8,17 @@
 typedef struct PatternGen PatternGen;
 typedef struct MainView MainView;
 
+static const int32_t TICK_FREQ = 1000;
+
 typedef enum {
-    AppEvent_Edit,
-    AppEvent_Edit_Toggle,
-    AppEvent_Run,
-    AppEvent_Run_IncreaseFreq,
-    AppEvent_Run_DecreaseFreq,
-    AppEvent_Stop,
-    AppEvent_OpenMenu
+    AppEvent_MainView_MenuButtonInvoked,
+    AppEvent_MainView_EditButtonInvoked,
+    AppEvent_MainView_RunButtonInvoked,
+    AppEvent_MainView_GridCellInvoked,
+    AppEvent_SetPatternLengthRequested,
+    AppEvent_SetFrequencyRequested,
+    AppEvent_ScrollToRequested,
+    AppEvent_NumberInput
 } AppEvent;
 
 typedef struct App App;
@@ -29,9 +32,15 @@ PatternGen* App_getPatternGen(App* this);
 void App_setPatternGen(App* this, PatternGen* patternGen);
 MainView* App_getMainView(App* this);
 
+int32_t App_getFreq(App* this);
+
 void App_sendEvent(App* this, AppEvent event);
 
 void App_enterMainEditScene(App* this);
 void App_enterMainRunScene(App* this);
 void App_enterMenuScene(App* this);
+void App_enterSetPatternLengthScene(App* this);
+void App_enterSetFrequencyScene(App* this);
+void App_enterScrollToScene(App* this);
 void App_exitCurrentScene(App* this);
+void App_returnToMainScene(App* this);

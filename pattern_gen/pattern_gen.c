@@ -55,6 +55,19 @@ const Pattern* PatternGen_getPattern(PatternGen* this) {
     return this->pattern;
 }
 
+size_t PatternGen_getIdx(PatternGen* this) {
+    assert(this != NULL);
+
+    return this->idx;
+}
+
+void PatternGen_resize(PatternGen* this, size_t size) {
+    assert(this != NULL);
+
+    PatternGen_freePattern(this);
+    PatternGen_allocPattern(this, size);
+}
+
 bool PatternGen_toggle(PatternGen* this, size_t sampleIdx, size_t pinIdx) {
     assert(this != NULL);
 
@@ -67,13 +80,6 @@ bool PatternGen_toggle(PatternGen* this, size_t sampleIdx, size_t pinIdx) {
 
     this->data[sampleIdx] ^= (1 << pinIdx);
     return true;
-}
-
-void PatternGen_resize(PatternGen* this, size_t size) {
-    assert(this != NULL);
-
-    PatternGen_freePattern(this);
-    PatternGen_allocPattern(this, size);
 }
 
 void PatternGen_reset(PatternGen* this) {

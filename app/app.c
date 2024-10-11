@@ -11,19 +11,25 @@
 #include "pattern_gen/pattern_gen.h"
 
 #include <gui/modules/empty_screen.h>
+#include <gui/modules/number_input.h>
+
+static const int32_t MIN_FREQ = 1;
 
 typedef enum {
     AppView_Empty,
     AppView_Main,
     AppView_Menu,
-    AppView_count
+    AppView_NumberInput
 } AppView;
 
 typedef enum {
-    AppScene_MainIdle,
-    AppScene_MainEdit,
-    AppScene_MainRun,
+    AppScene_Main_Idle,
+    AppScene_Main_Edit,
+    AppScene_Main_Run,
     AppScene_Menu,
+    AppScene_SetPatternLength,
+    AppScene_SetFrequency,
+    AppScene_ScrollTo,
     AppScene_count
 } AppScene;
 
@@ -34,8 +40,11 @@ struct App {
     EmptyScreen* emptyScreen;
     MainView* mainView;
     MenuView* menuView;
+    NumberInput* numberInput;
     void* currentScene;
     PatternGen* patternGen;
+    int32_t numberInputResult;
+    int32_t freq;
 };
 
 static bool onViewDispatcherCustomEvent(void* context, uint32_t event) {
@@ -54,6 +63,13 @@ static void onViewDispatcherTickEvent(void* context) {
     App* this = (App*)context;
 
     return scene_manager_handle_tick_event(this->sceneManager);
+}
+
+static void numberInputCallback(void* context, int32_t number) {
+    App* this = (App*)context;
+
+    this->numberInputResult = number;
+    App_sendEvent(this, AppEvent_NumberInput);
 }
 
 static void mainIdleScene_onEnter(void* context) {
@@ -155,20 +171,160 @@ static void menuScene_onExit(void* context) {
     this->menuView = NULL;
 }
 
-static const AppSceneOnEnterCallback onEnterHandlers[] =
-    {mainIdleScene_onEnter, mainEditScene_onEnter, mainRunScene_onEnter, menuScene_onEnter};
+static void setPatternLengthScene_onEnter(void* context) {
+    App* this = (App*)context;
 
-static const AppSceneOnEventCallback onEventHandlers[] =
-    {mainIdleScene_onEvent, mainEditScene_onEvent, mainRunScene_onEvent, menuScene_onEvent};
+    this->numberInput = number_input_alloc();
+    number_input_set_header_text(this->numberInput, "Pattern Length");
+    number_input_set_result_callback(
+        this->numberInput,
+        numberInputCallback,
+        this,
+        PatternGen_getPattern(this->patternGen)->numSamples,
+        0,
+        PATTERN_GEN_MAX_SAMPLES);
 
-static const AppSceneOnExitCallback onExitHandlers[] =
-    {mainIdleScene_onExit, mainEditScene_onExit, mainRunScene_onExit, menuScene_onExit};
+    view_dispatcher_add_view(
+        this->viewDispatcher, AppView_NumberInput, number_input_get_view(this->numberInput));
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static bool setPatternLengthScene_onEvent(void* context, SceneManagerEvent event) {
+    App* this = (App*)context;
+
+    if(event.type != SceneManagerEventTypeCustom) {
+        return false;
+    }
+    if(event.event != AppEvent_NumberInput) {
+        return false;
+    }
+
+    PatternGen_resize(this->patternGen, this->numberInputResult);
+    MainView_updateGrid(this->mainView);
+    App_returnToMainScene(this);
+
+    return true;
+}
+
+static void setPatternLengthScene_onExit(void* context) {
+    App* this = (App*)context;
+
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_Empty);
+    view_dispatcher_remove_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static void setFrequencyScene_onEnter(void* context) {
+    App* this = (App*)context;
+
+    this->numberInput = number_input_alloc();
+    number_input_set_header_text(this->numberInput, "Frequency (Hz)");
+    number_input_set_result_callback(
+        this->numberInput, numberInputCallback, this, this->freq, MIN_FREQ, TICK_FREQ);
+
+    view_dispatcher_add_view(
+        this->viewDispatcher, AppView_NumberInput, number_input_get_view(this->numberInput));
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static bool setFrequencyScene_onEvent(void* context, SceneManagerEvent event) {
+    App* this = (App*)context;
+
+    if(event.type != SceneManagerEventTypeCustom) {
+        return false;
+    }
+    if(event.event != AppEvent_NumberInput) {
+        return false;
+    }
+
+    this->freq = this->numberInputResult;
+    view_dispatcher_set_tick_event_callback(this->viewDispatcher, onViewDispatcherTickEvent, 1);
+    App_returnToMainScene(this);
+
+    return true;
+}
+
+static void setFrequencyScene_onExit(void* context) {
+    App* this = (App*)context;
+
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_Empty);
+    view_dispatcher_remove_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static void scrollToScene_onEnter(void* context) {
+    App* this = (App*)context;
+
+    this->numberInput = number_input_alloc();
+    number_input_set_header_text(this->numberInput, "Scroll To...");
+    number_input_set_result_callback(
+        this->numberInput,
+        numberInputCallback,
+        this,
+        PatternGen_getIdx(this->patternGen),
+        0,
+        PatternGen_getPattern(this->patternGen)->numSamples);
+
+    view_dispatcher_add_view(
+        this->viewDispatcher, AppView_NumberInput, number_input_get_view(this->numberInput));
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static bool scrollToScene_onEvent(void* context, SceneManagerEvent event) {
+    App* this = (App*)context;
+
+    if(event.type != SceneManagerEventTypeCustom) {
+        return false;
+    }
+    if(event.event != AppEvent_NumberInput) {
+        return false;
+    }
+
+    MainView_scrollTo(this->mainView, this->numberInputResult);
+    App_returnToMainScene(this);
+
+    return false;
+}
+
+static void scrollToScene_onExit(void* context) {
+    App* this = (App*)context;
+
+    view_dispatcher_switch_to_view(this->viewDispatcher, AppView_Empty);
+    view_dispatcher_remove_view(this->viewDispatcher, AppView_NumberInput);
+}
+
+static const AppSceneOnEnterCallback onEnterHandlers[] = {
+    mainIdleScene_onEnter,
+    mainEditScene_onEnter,
+    mainRunScene_onEnter,
+    menuScene_onEnter,
+    setPatternLengthScene_onEnter,
+    setFrequencyScene_onEnter,
+    scrollToScene_onEnter};
+
+static const AppSceneOnEventCallback onEventHandlers[] = {
+    mainIdleScene_onEvent,
+    mainEditScene_onEvent,
+    mainRunScene_onEvent,
+    menuScene_onEvent,
+    setPatternLengthScene_onEvent,
+    setFrequencyScene_onEvent,
+    scrollToScene_onEvent};
+
+static const AppSceneOnExitCallback onExitHandlers[] = {
+    mainIdleScene_onExit,
+    mainEditScene_onExit,
+    mainRunScene_onExit,
+    menuScene_onExit,
+    setPatternLengthScene_onExit,
+    setFrequencyScene_onExit,
+    scrollToScene_onExit};
 
 static const SceneManagerHandlers sceneManagerHandlers = {
     .on_enter_handlers = onEnterHandlers,
     .on_event_handlers = onEventHandlers,
     .on_exit_handlers = onExitHandlers,
     .scene_num = AppScene_count};
+
+static const uint32_t mainScenes[] = {AppScene_Main_Idle, AppScene_Main_Edit, AppScene_Main_Run};
 
 App* App_alloc() {
     App* this = (App*)malloc(sizeof(App));
@@ -194,8 +350,12 @@ App* App_alloc() {
     view_dispatcher_add_view(this->viewDispatcher, AppView_Main, MainView_getView(this->mainView));
 
     this->menuView = NULL;
+    this->numberInput = NULL;
     this->currentScene = NULL;
     this->patternGen = NULL;
+
+    this->numberInputResult = 0;
+    this->freq = MIN_FREQ;
 
     return this;
 }
@@ -219,7 +379,7 @@ void App_free(App* this) {
 void App_run(App* this) {
     furi_assert(this != NULL);
 
-    scene_manager_next_scene(this->sceneManager, AppScene_MainIdle);
+    scene_manager_next_scene(this->sceneManager, AppScene_Main_Idle);
 
     view_dispatcher_run(this->viewDispatcher);
 }
@@ -244,6 +404,12 @@ MainView* App_getMainView(App* this) {
     return this->mainView;
 }
 
+int32_t App_getFreq(App* this) {
+    furi_assert(this != NULL);
+
+    return this->freq;
+}
+
 void App_sendEvent(App* this, AppEvent event) {
     furi_assert(this != NULL);
 
@@ -253,13 +419,13 @@ void App_sendEvent(App* this, AppEvent event) {
 void App_enterMainEditScene(App* this) {
     furi_assert(this != NULL);
 
-    scene_manager_next_scene(this->sceneManager, AppScene_MainEdit);
+    scene_manager_next_scene(this->sceneManager, AppScene_Main_Edit);
 }
 
 void App_enterMainRunScene(App* this) {
     furi_assert(this != NULL);
 
-    scene_manager_next_scene(this->sceneManager, AppScene_MainRun);
+    scene_manager_next_scene(this->sceneManager, AppScene_Main_Run);
 }
 
 void App_enterMenuScene(App* this) {
@@ -268,8 +434,33 @@ void App_enterMenuScene(App* this) {
     scene_manager_next_scene(this->sceneManager, AppScene_Menu);
 }
 
+void App_enterSetPatternLengthScene(App* this) {
+    furi_assert(this != NULL);
+
+    scene_manager_next_scene(this->sceneManager, AppScene_SetPatternLength);
+}
+
+void App_enterSetFrequencyScene(App* this) {
+    furi_assert(this != NULL);
+
+    scene_manager_next_scene(this->sceneManager, AppScene_SetFrequency);
+}
+
+void App_enterScrollToScene(App* this) {
+    furi_assert(this != NULL);
+
+    scene_manager_next_scene(this->sceneManager, AppScene_ScrollTo);
+}
+
 void App_exitCurrentScene(App* this) {
     furi_assert(this != NULL);
 
     scene_manager_previous_scene(this->sceneManager);
+}
+
+void App_returnToMainScene(App* this) {
+    furi_assert(this != NULL);
+
+    scene_manager_search_and_switch_to_previous_scene_one_of(
+        this->sceneManager, mainScenes, sizeof(mainScenes) / sizeof(mainScenes[0]));
 }

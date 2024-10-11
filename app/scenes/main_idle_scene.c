@@ -40,14 +40,14 @@ bool MainIdleScene_handleSceneManagerEvent(MainIdleScene* this, SceneManagerEven
     }
 
     switch(event.event) {
-    case AppEvent_Edit:
+    case AppEvent_MainView_MenuButtonInvoked:
+        App_enterMenuScene(this->app);
+        return true;
+    case AppEvent_MainView_EditButtonInvoked:
         App_enterMainEditScene(this->app);
         return true;
-    case AppEvent_Run:
+    case AppEvent_MainView_RunButtonInvoked:
         App_enterMainRunScene(this->app);
-        return true;
-    case AppEvent_OpenMenu:
-        App_enterMenuScene(this->app);
         return true;
     default:
         return false;

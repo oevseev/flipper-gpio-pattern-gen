@@ -27,7 +27,22 @@ void MenuScene_handleSceneManagerEnter(MenuScene* this) {
 
 bool MenuScene_handleSceneManagerEvent(MenuScene* this, SceneManagerEvent event) {
     furi_assert(this != NULL);
-    UNUSED(event);
+
+    if(event.type != SceneManagerEventTypeCustom) {
+        return false;
+    }
+
+    switch(event.event) {
+    case AppEvent_SetPatternLengthRequested:
+        App_enterSetPatternLengthScene(this->app);
+        return true;
+    case AppEvent_SetFrequencyRequested:
+        App_enterSetFrequencyScene(this->app);
+        return true;
+    case AppEvent_ScrollToRequested:
+        App_enterScrollToScene(this->app);
+        return true;
+    }
 
     return false;
 }

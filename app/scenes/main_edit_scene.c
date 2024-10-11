@@ -53,7 +53,7 @@ bool MainEditScene_handleSceneManagerEvent(MainEditScene* this, SceneManagerEven
     }
 
     switch(event.event) {
-    case AppEvent_Edit_Toggle:
+    case AppEvent_MainView_GridCellInvoked:
         return MainEditScene_handleToggle(this);
     default:
         return false;

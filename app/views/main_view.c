@@ -197,16 +197,22 @@ static void drawCallback(Canvas* canvas, void* modelPtr) {
 }
 
 static bool MainView_handleInputIdle(MainView* this, InputEvent* event) {
-    if(event->type != InputTypeShort) {
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
         return false;
     }
 
     switch(event->key) {
     case InputKeyUp:
-        App_sendEvent(this->app, AppEvent_OpenMenu);
+        if(event->type == InputTypeRepeat) {
+            return false;
+        }
+        App_sendEvent(this->app, AppEvent_MainView_MenuButtonInvoked);
         return true;
     case InputKeyDown:
-        App_sendEvent(this->app, AppEvent_Run);
+        if(event->type == InputTypeRepeat) {
+            return false;
+        }
+        App_sendEvent(this->app, AppEvent_MainView_RunButtonInvoked);
         return true;
     case InputKeyLeft:
         MainView_scrollLeft(this, 1);
@@ -215,7 +221,10 @@ static bool MainView_handleInputIdle(MainView* this, InputEvent* event) {
         MainView_scrollRight(this, 1);
         return true;
     case InputKeyOk:
-        App_sendEvent(this->app, AppEvent_Edit);
+        if(event->type == InputTypeRepeat) {
+            return false;
+        }
+        App_sendEvent(this->app, AppEvent_MainView_EditButtonInvoked);
         return true;
     default:
         return false;
@@ -223,7 +232,7 @@ static bool MainView_handleInputIdle(MainView* this, InputEvent* event) {
 }
 
 static bool MainView_handleInputEdit(MainView* this, InputEvent* event) {
-    if(event->type != InputTypeShort) {
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
         return false;
     }
 
@@ -241,7 +250,10 @@ static bool MainView_handleInputEdit(MainView* this, InputEvent* event) {
         MainView_moveCursorRight(this, 1);
         return true;
     case InputKeyOk:
-        App_sendEvent(this->app, AppEvent_Edit_Toggle);
+        if(event->type == InputTypeRepeat) {
+            return false;
+        }
+        App_sendEvent(this->app, AppEvent_MainView_GridCellInvoked);
         return true;
     default:
         return false;
@@ -255,7 +267,7 @@ static bool MainView_handleInputRun(MainView* this, InputEvent* event) {
 
     switch(event->key) {
     case InputKeyDown:
-        App_sendEvent(this->app, AppEvent_Stop);
+        App_sendEvent(this->app, AppEvent_MainView_RunButtonInvoked);
         return true;
     default:
         return false;
@@ -382,6 +394,10 @@ size_t MainView_getPinIdx(MainView* this) {
 void MainView_scrollLeft(MainView* this, size_t delta) {
     furi_assert(this != NULL);
 
+    if(MainView_numSamples(this) == 0) {
+        return;
+    }
+
     if(delta <= this->leftIdx) {
         this->leftIdx -= delta;
     } else {
@@ -399,6 +415,10 @@ void MainView_scrollLeft(MainView* this, size_t delta) {
 
 void MainView_scrollRight(MainView* this, size_t delta) {
     furi_assert(this != NULL);
+
+    if(MainView_numSamples(this) == 0) {
+        return;
+    }
 
     size_t numCols = MainView_numCols(this);
     size_t rightIdx = this->leftIdx + numCols - 1;
@@ -442,6 +462,10 @@ void MainView_moveCursorDown(MainView* this, size_t delta) {
 void MainView_moveCursorLeft(MainView* this, size_t delta) {
     furi_assert(this != NULL);
 
+    if(MainView_numSamples(this) == 0) {
+        return;
+    }
+
     if(delta <= this->sampleIdx) {
         this->sampleIdx -= delta;
     } else {
@@ -457,6 +481,10 @@ void MainView_moveCursorLeft(MainView* this, size_t delta) {
 
 void MainView_moveCursorRight(MainView* this, size_t delta) {
     furi_assert(this != NULL);
+
+    if(MainView_numSamples(this) == 0) {
+        return;
+    }
 
     size_t numSamples = MainView_numSamples(this);
     if(this->sampleIdx + delta < numSamples) {
@@ -479,9 +507,12 @@ void MainView_scrollTo(MainView* this, size_t sampleIdx) {
     furi_assert(this != NULL);
 
     this->sampleIdx = sampleIdx;
-    this->leftIdx = sampleIdx;
-
     size_t numSamples = MainView_numSamples(this);
+    if(this->sampleIdx >= numSamples) {
+        this->sampleIdx = numSamples > 0 ? numSamples - 1 : 0;
+    }
+
+    this->leftIdx = sampleIdx;
     size_t maxLeftIdx = numSamples >= GRID_NUM_COLS ? numSamples - GRID_NUM_COLS : 0;
     if(this->leftIdx > maxLeftIdx) {
         this->leftIdx = maxLeftIdx;

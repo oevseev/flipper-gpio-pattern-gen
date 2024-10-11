@@ -6,6 +6,7 @@
 
 struct MainRunScene {
     App* app;
+    int32_t tickCounter;
 };
 
 bool MainRunScene_handleTick(MainRunScene* this) {
@@ -13,7 +14,11 @@ bool MainRunScene_handleTick(MainRunScene* this) {
     if(patternGen == NULL) {
         return false;
     }
+    if(++this->tickCounter < TICK_FREQ / App_getFreq(this->app)) {
+        return false;
+    }
 
+    this->tickCounter = 0;
     size_t curSample = PatternGen_tick(patternGen);
 
     MainView* mainView = App_getMainView(this->app);
@@ -31,6 +36,7 @@ MainRunScene* MainRunScene_alloc(App* app) {
     furi_check(this != NULL);
 
     this->app = app;
+    this->tickCounter = 0;
 
     return this;
 }
@@ -63,7 +69,7 @@ bool MainRunScene_handleSceneManagerEvent(MainRunScene* this, SceneManagerEvent 
         return MainRunScene_handleTick(this);
     } else if(event.type == SceneManagerEventTypeCustom) {
         switch(event.event) {
-        case AppEvent_Stop:
+        case AppEvent_MainView_RunButtonInvoked:
             App_exitCurrentScene(this->app);
             return true;
         default:
